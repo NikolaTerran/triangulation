@@ -1,0 +1,248 @@
+<!-- Tianrun Liu/Terran -->
+<!-- Id:112838591 -->
+<!-- See https://konvajs.org/docs/shapes/Line_-_Polygon.html for template -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="https://unpkg.com/konva@8.3.11/konva.min.js"></script>
+    <script type="text/javascript">
+
+        // See https://www.geeksforgeeks.org/check-if-two-given-line-segments-intersect/
+        class Point{
+            constructor(x, y){
+                this.x = x;
+                this.y = y;
+            }
+        }
+        
+        function orientation(p, q, r){
+            let val = (q.y - p.y) * (r.x - q.x) -
+                    (q.x - p.x) * (r.y - q.y);
+            if (val == 0) return 0;
+            return (val > 0)? 1: 2;
+        }
+
+        function onSegment(p, q, r){
+            if (q.x <= Math.max(p.x, r.x) && q.x >= Math.min(p.x, r.x) &&
+                q.y <= Math.max(p.y, r.y) && q.y >= Math.min(p.y, r.y))
+            return true;
+            return false;
+        }
+
+        function doIntersect(p1, q1, p2, q2){
+            let o1 = orientation(p1, q1, p2);
+            let o2 = orientation(p1, q1, q2);
+            let o3 = orientation(p2, q2, p1);
+            let o4 = orientation(p2, q2, q1);
+            if (o1 != o2 && o3 != o4)
+                return true;
+            if (o1 == 0 && onSegment(p1, p2, q1)) return true;
+            if (o2 == 0 && onSegment(p1, q2, q1)) return true;
+            if (o3 == 0 && onSegment(p2, p1, q2)) return true;
+            if (o4 == 0 && onSegment(p2, q1, q2)) return true;
+            return false;
+        }
+
+        //#code i wrote
+        function isDiag(p, q, arr){
+            flag = true
+            if(arr[0] !== p && arr[0] !== q && arr[arr.length - 1] !== p && arr[arr.length - 1] !== q){
+                if(doIntersect(p,q,arr[0],arr[arr.length - 1])){
+                    flag = false
+                }
+            }
+            for(let i = 0; i < arr.length - 1; i ++){
+                if(arr[i] !== p && arr[i] !== q && arr[i + 1] !== p && arr[i + 1] !== q){
+                    if(doIntersect(p,q,arr[i],arr[i+1])){
+                        flag = false
+                        break
+                    }
+                }
+            }
+            if(flag){
+                let num_intersect = 0
+                mid = new Point((p.x + q.x)/2 , (p.y+q.y)/2)
+                //cast a ray at 'infinity', if even intersection then the segment is outside polygon
+                boarder = new Point(Math.PI, 9999999)
+                if(doIntersect(mid,boarder,arr[0],arr[arr.length - 1])){
+                    num_intersect ++
+                }
+                for(let i = 0; i < arr.length - 1; i ++){
+                    if(doIntersect(mid,boarder,arr[i],arr[i+1])){
+                        num_intersect ++
+                    }
+                }
+                if(num_intersect % 2 === 0){
+                    flag = false
+                }
+            }
+            return flag
+        }
+
+        class CircularNode{
+            constructor(x, y, z){
+                this.pt = x;
+                this.prev = y;
+                this.next = z;
+            }
+        }
+
+        function notDupe(p,q,dupe){      
+            for(let i = 0; i < dupe.length ; i ++){
+                if((p.x === dupe[i][0].x && p.y === dupe[i][0].y && q.x === dupe[i][1].x && q.y === dupe[i][1].y) || (q.x === dupe[i][0].x && q.y === dupe[i][0].y && p.x === dupe[i][1].x && p.y === dupe[i][1].y)){
+                    return false
+                }
+            }
+            return true
+        }
+
+        //algorithm explaination:
+        //1. find a diagonal 
+        //2. mark that diagonal as duplicate, partition the polygon into 2 along the diagonal
+        //3. if the partitioned polygon is triangle, return 1 else repeat from step 1.
+        //5. when the recursive call finishes, multiply the return values
+        //6. find a diagonal that is not duplicate and intersects with the diagonal you found in step 1, then goto 2.
+
+        function triang(points,dupe) {
+            tri_count = 0
+            if(points.length === 3){
+                return 1
+            }
+            //first diagonal
+            let diag = -1
+            //find diag from first vertex
+            let x = 0
+            for(let j = 2; j < points.length - 1; j++){
+                if(isDiag(points[x],points[j],points) && notDupe(points[x],points[j],dupe)){
+                    //slice along the diagonal to create 2 polygon
+                    diag = [x,j]
+                    dupe.push([points[j],points[x]])
+                    tri_count += triang(points.slice(x,j + 1),dupe.slice(0)) * triang(points.slice(j,points.length).concat(points.slice(0,x + 1)),dupe.slice(0))
+                    break
+                }
+            }
+            
+            x = points.length - 1
+            //find diag from last vertex
+            for(let j = 1; j < points.length - 2; j++){
+                if(isDiag(points[x],points[j],points) && notDupe(points[x],points[j],dupe)){
+                    //slice along the diagonal to create 2 polygon
+                    if(diag === -1){
+                        diag = [j,x]
+                        dupe.push([points[j],points[x]])
+                        tri_count += triang(points.slice(j,x + 1),dupe.slice(0)) * triang(points.slice(x,points.length).concat(points.slice(0,j + 1)),dupe.slice(0))
+                        break
+                    }else if(diag[0] !== x && diag[0] !== j && diag[1] !== x && diag[1] !== j && doIntersect(points[diag[0]],points[diag[1]],points[x],points[j])){
+                        dupe.push([points[j],points[x]])
+                        tri_count += triang(points.slice(j,x + 1),dupe.slice(0)) * triang(points.slice(x,points.length).concat(points.slice(0,j + 1)),dupe.slice(0))
+                        break
+                    }
+                }
+            }
+
+            
+            for(let i = 1; i < points.length - 1; i++){
+                for(let j = 0; j < points.length; j++){
+                    if(Math.abs(i-j) > 1 && isDiag(points[i],points[j],points) && notDupe(points[i],points[j],dupe)){
+                        let max = Math.max(i,j)
+                        let min = Math.min(i,j)
+                        //slice along the diagonal to create 2 polygon
+                        if(diag === -1){
+                            diag = [min,max]
+                            dupe.push([points[min],points[max]])
+                            tri_count += triang(points.slice(min,max + 1),dupe.slice(0)) * triang(points.slice(max,points.length).concat(points.slice(0,min + 1)),dupe.slice(0))
+                            break
+                        }else if(diag[0] !== i && diag[0] !== j && diag[1] !== i && diag[1] !== j && doIntersect(points[diag[0]],points[diag[1]],points[i],points[j])){
+                            dupe.push([points[min],points[max]])
+                            tri_count += triang(points.slice(min,max + 1),dupe.slice(0)) * triang(points.slice(max,points.length).concat(points.slice(0,min + 1)),dupe.slice(0))
+                            
+                        }
+                    }
+                }
+            }
+            return tri_count
+        }
+
+        function handleIt() {
+            var values = document.getElementById('cord').value
+            values = values.split(',').map(Number);
+            var poly = new Konva.Line({
+                points: values,
+                fill: '#00D2FF',
+                stroke: 'black',
+                strokeWidth: 5,
+                closed: true,
+            });
+            poly.on('mousedown', function () {
+                var tmp = poly.points()
+                var ptr = []
+                for(let i = 0; i < tmp.length ; i += 2){
+                    ptr.push(new Point(tmp[i],tmp[i+1]))
+                }
+                console.log(ptr)
+
+                x = triang(ptr,[])
+                document.getElementById("answer").innerHTML = "distinct triangulations: " + x
+            });
+            poly.on('contextmenu', function () {
+                poly.destroy()
+            })
+            layer.add(poly);
+        }
+        //#end code i wrote
+    </script>
+    <meta charset="utf-8" />
+    <title>Konva Line Polygon Demo</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background-color: #f0f0f0;
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+        <form name="myform" action="javascript:handleIt()">
+            <label for="cordinates">Comma separated coordinates:</label>
+            <input type="text" id="cord" value="200, 210, 180, 100, 140, 80, 90, 80, 60, 100, 50, 140, 50, 220, 200, 250, 400, 220, 300, 180, 260, 120, 280, 20"><br><br>
+            <!-- configurations to try out:
+            q1a: 100,50, 75,45,50,70,40,100,60,150,175,120,140,100
+            q2b: 200, 210, 180, 100, 140, 80, 90, 80, 60, 100, 50, 140, 50, 220, 200, 250, 400, 220, 300, 180, 260, 120, 280, 20
+            octagon: 23, 20, 23, 160, 70, 300, 250, 230, 280, 200,  290, 139, 270, 99, 200, 50, 100, 20-->
+            <input name="Submit"  type="submit" value="Submit"/>
+        </form>
+        <br>
+        <text id="answer"></text>
+    </div>
+    <div id="container">
+    
+    </div>
+    <script>
+      
+      var width = window.innerWidth;
+      var height = window.innerHeight;
+
+      function handleClick(){
+        alert('hi')
+      }
+
+      function handleMouseMove(){
+        
+      }
+
+      var stage = new Konva.Stage({
+        container: 'container',
+        width: width,
+        height: height,
+        onMouseDown: handleClick,
+        onMouseMove: handleMouseMove
+      });
+
+      var layer = new Konva.Layer();
+
+      stage.add(layer);
+    </script>
+  </body>
+</html>
